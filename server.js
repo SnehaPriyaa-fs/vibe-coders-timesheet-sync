@@ -403,6 +403,169 @@ class TimesheetAPI {
             }
         });
 
+        // Check timesheets for each working day of the week
+        this.app.post('/api/check-daily-timesheets', async (req, res) => {
+            try {
+                const { startDate, endDate, sendEmail = false } = req.body;
+                
+                if (!startDate || !endDate) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'startDate and endDate are required'
+                    });
+                }
+
+                console.log(`📊 Checking daily timesheets for week ${startDate} to ${endDate}`);
+                
+                // Analyze timesheet data for each working day
+                const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(startDate, endDate);
+                
+                const result = {
+                    success: true,
+                    data: dailyAnalysis
+                };
+
+                // Send notifications if requested and there are issues
+                const totalIssues = dailyAnalysis.dailyAnalysis.reduce((sum, day) => {
+                    return sum + (day.analysis ? day.analysis.noSubmission.length + day.analysis.flaggedHours.length : 0);
+                }, 0);
+
+                if (sendEmail && totalIssues > 0) {
+                    try {
+                        // Create a summary analysis for notifications
+                        const summaryAnalysis = this.createSummaryAnalysis(dailyAnalysis);
+                        await this.sendAllNotifications(summaryAnalysis, dailyAnalysis.weekInfo);
+                        result.data.notificationsSent = {
+                            email: true,
+                            slack: !!this.slackWebhookUrl
+                        };
+                    } catch (notificationError) {
+                        result.data.notificationError = notificationError.message;
+                    }
+                }
+
+                res.json(result);
+                
+            } catch (error) {
+                console.error('❌ Error in check-daily-timesheets:', error.message);
+                res.status(500).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        });
+
+        // Check previous week's timesheets by working days
+        this.app.post('/api/check-previous-week-daily', async (req, res) => {
+            try {
+                const { sendEmail = false } = req.body;
+                const weekInfo = this.getPreviousWeekRange();
+                
+                console.log(`📊 Checking previous week daily: ${weekInfo.startDate} to ${weekInfo.endDate}`);
+                
+                // Analyze timesheet data for each working day
+                const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(weekInfo.startDate, weekInfo.endDate);
+                
+                const result = {
+                    success: true,
+                    data: dailyAnalysis
+                };
+
+                // Send notifications if requested and there are issues
+                const totalIssues = dailyAnalysis.dailyAnalysis.reduce((sum, day) => {
+                    return sum + (day.analysis ? day.analysis.noSubmission.length + day.analysis.flaggedHours.length : 0);
+                }, 0);
+
+                if (sendEmail && totalIssues > 0) {
+                    try {
+                        // Create a summary analysis for notifications
+                        const summaryAnalysis = this.createSummaryAnalysis(dailyAnalysis);
+                        await this.sendAllNotifications(summaryAnalysis, dailyAnalysis.weekInfo);
+                        result.data.notificationsSent = {
+                            email: true,
+                            slack: !!this.slackWebhookUrl
+                        };
+                    } catch (notificationError) {
+                        result.data.notificationError = notificationError.message;
+                    }
+                }
+
+                res.json(result);
+                
+            } catch (error) {
+                console.error('❌ Error in check-previous-week-daily:', error.message);
+                res.status(500).json({
+                    success: false,
+                    error: error.message
+                });
+            }
+        });
+
+        // Get per-employee summary of missed days (0 hours) within a week
+        this.app.post('/api/missing-by-day', async (req, res) => {
+            try {
+                const { startDate, endDate, previousWeek = false } = req.body;
+
+                let range;
+                if (previousWeek) {
+                    range = this.getPreviousWeekRange();
+                } else if (!startDate || !endDate) {
+                    return res.status(400).json({
+                        success: false,
+                        error: 'Either provide startDate and endDate, or set previousWeek to true'
+                    });
+                } else {
+                    range = { startDate, endDate };
+                }
+
+                const daily = await this.analyzeTimesheetDataByWorkingDays(range.startDate, range.endDate);
+
+                // Build per-employee map of missed days
+                const userIdToSummary = new Map();
+
+                daily.dailyAnalysis.forEach(day => {
+                    if (!day.analysis) return;
+                    const missed = day.analysis.noSubmission || [];
+                    missed.forEach(emp => {
+                        if (!userIdToSummary.has(emp.userId)) {
+                            userIdToSummary.set(emp.userId, {
+                                name: emp.name,
+                                userId: emp.userId,
+                                email: emp.email || 'N/A',
+                                employementStatus: emp.employementStatus,
+                                daysWithNoSubmission: [],
+                            });
+                        }
+                        const entry = userIdToSummary.get(emp.userId);
+                        entry.daysWithNoSubmission.push({ date: day.date, dayName: day.dayName });
+                    });
+                });
+
+                const result = Array.from(userIdToSummary.values())
+                    .map(emp => ({
+                        ...emp,
+                        totalDaysMissed: emp.daysWithNoSubmission.length
+                    }))
+                    .sort((a, b) => b.totalDaysMissed - a.totalDaysMissed || a.name.localeCompare(b.name));
+
+                res.json({
+                    success: true,
+                    data: {
+                        weekInfo: {
+                            ...daily.weekInfo
+                        },
+                        workingDays: daily.workingDays,
+                        summary: result,
+                        totalEmployeesWithMisses: result.length,
+                        analyzedAt: new Date().toISOString()
+                    }
+                });
+            } catch (error) {
+                console.error('❌ Error in missing-by-day:', error.message);
+                res.status(500).json({ success: false, error: error.message });
+            }
+        });
+
         // Post holiday timesheet entry
         this.app.post('/api/post-holiday', async (req, res) => {
             try {
@@ -631,15 +794,16 @@ class TimesheetAPI {
     }
 
     /**
-     * Analyze timesheet data and identify issues
+     * Analyze timesheet data and identify issues for a specific day
      */
-    analyzeTimesheetData(timesheetData) {
+    analyzeTimesheetData(timesheetData, targetDate = null) {
         const issues = {
             noSubmission: [],
             partialSubmission: [],
             flaggedHours: [],
             totalEmployees: timesheetData.length,
-            analyzedAt: new Date().toISOString()
+            analyzedAt: new Date().toISOString(),
+            targetDate: targetDate
         };
 
         timesheetData.forEach(employee => {
@@ -650,7 +814,7 @@ class TimesheetAPI {
                 return;
             }
 
-            // Check for no submission (0 hours logged)
+            // Check for no submission (0 hours logged for the day)
             if (loggedHours === 0) {
                 issues.noSubmission.push({
                     name,
@@ -659,20 +823,7 @@ class TimesheetAPI {
                     allocatedHours,
                     loggedHours,
                     employementStatus,
-                    issue: 'No timesheet submission'
-                });
-            }
-            // Check for partial submission (less than minimum threshold)
-            else if (loggedHours < this.minimumHours) {
-                issues.partialSubmission.push({
-                    name,
-                    userId,
-                    email: email || 'N/A',
-                    allocatedHours,
-                    loggedHours,
-                    employementStatus,
-                    shortfall: this.minimumHours - loggedHours,
-                    issue: 'Incomplete timesheet submission'
+                    issue: targetDate ? `No timesheet submission for ${targetDate}` : 'No timesheet submission'
                 });
             }
 
@@ -690,6 +841,159 @@ class TimesheetAPI {
         });
 
         return issues;
+    }
+
+    /**
+     * Get all working days (Monday to Friday) for a given week
+     */
+    getWorkingDaysForWeek(startDate, endDate) {
+        const workingDays = [];
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        
+        for (let date = new Date(start); date <= end; date.setDate(date.getDate() + 1)) {
+            const dayOfWeek = date.getDay();
+            // Monday = 1, Tuesday = 2, ..., Friday = 5
+            if (dayOfWeek >= 1 && dayOfWeek <= 5) {
+                workingDays.push(this.formatDate(date));
+            }
+        }
+        
+        return workingDays;
+    }
+
+    /**
+     * Analyze timesheet data for each working day of the week
+     */
+    async analyzeTimesheetDataByWorkingDays(startDate, endDate) {
+        const workingDays = this.getWorkingDaysForWeek(startDate, endDate);
+        const dailyAnalysis = [];
+        
+        console.log(`📅 Analyzing ${workingDays.length} working days: ${workingDays.join(', ')}`);
+        
+        for (const day of workingDays) {
+            try {
+                console.log(`📊 Checking timesheet for ${day}...`);
+                
+                // Fetch timesheet data for this specific day
+                const timesheetData = await this.fetchTimesheetData(day, day);
+                
+                // Analyze data for this day
+                const analysis = this.analyzeTimesheetData(timesheetData, day);
+                
+                dailyAnalysis.push({
+                    date: day,
+                    dayName: this.getDayName(day),
+                    analysis,
+                    totalEmployees: timesheetData.length,
+                    issuesFound: analysis.noSubmission.length + analysis.flaggedHours.length
+                });
+                
+                console.log(`✅ ${day}: ${analysis.noSubmission.length} employees with no submission, ${analysis.flaggedHours.length} with flagged hours`);
+                
+            } catch (error) {
+                console.error(`❌ Error analyzing ${day}:`, error.message);
+                dailyAnalysis.push({
+                    date: day,
+                    dayName: this.getDayName(day),
+                    error: error.message,
+                    analysis: null
+                });
+            }
+        }
+        
+        return {
+            weekInfo: {
+                startDate,
+                endDate,
+                weekNumber: this.getWeekNumber(new Date(startDate))
+            },
+            workingDays,
+            dailyAnalysis,
+            totalDaysAnalyzed: workingDays.length,
+            analyzedAt: new Date().toISOString()
+        };
+    }
+
+    /**
+     * Get day name from date string
+     */
+    getDayName(dateString) {
+        const date = new Date(dateString);
+        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        return days[date.getDay()];
+    }
+
+    /**
+     * Create summary analysis from daily analysis for notifications
+     */
+    createSummaryAnalysis(dailyAnalysis) {
+        const summary = {
+            noSubmission: [],
+            partialSubmission: [], // Not used in daily analysis
+            flaggedHours: [],
+            totalEmployees: 0,
+            analyzedAt: new Date().toISOString()
+        };
+
+        // Collect all unique employees with issues across all days
+        const employeeIssues = new Map();
+
+        dailyAnalysis.dailyAnalysis.forEach(day => {
+            if (day.analysis) {
+                // Add no submission employees
+                day.analysis.noSubmission.forEach(emp => {
+                    const key = emp.userId;
+                    if (!employeeIssues.has(key)) {
+                        employeeIssues.set(key, {
+                            ...emp,
+                            daysWithIssues: [],
+                            totalDaysWithNoSubmission: 0
+                        });
+                    }
+                    const employee = employeeIssues.get(key);
+                    employee.daysWithIssues.push(day.date);
+                    employee.totalDaysWithNoSubmission++;
+                });
+
+                // Add flagged hours employees
+                day.analysis.flaggedHours.forEach(emp => {
+                    const key = emp.userId;
+                    if (!employeeIssues.has(key)) {
+                        employeeIssues.set(key, {
+                            ...emp,
+                            daysWithIssues: [],
+                            totalDaysWithNoSubmission: 0
+                        });
+                    }
+                    const employee = employeeIssues.get(key);
+                    if (!employee.daysWithIssues.includes(day.date)) {
+                        employee.daysWithIssues.push(day.date);
+                    }
+                });
+
+                // Update total employees count
+                summary.totalEmployees = Math.max(summary.totalEmployees, day.totalEmployees);
+            }
+        });
+
+        // Convert map to arrays
+        employeeIssues.forEach(employee => {
+            if (employee.totalDaysWithNoSubmission > 0) {
+                summary.noSubmission.push({
+                    ...employee,
+                    issue: `No timesheet submission for ${employee.totalDaysWithNoSubmission} day(s): ${employee.daysWithIssues.join(', ')}`
+                });
+            }
+            if (employee.flaggedHours > 0) {
+                summary.flaggedHours.push({
+                    ...employee,
+                    issue: `Flagged hours on ${employee.daysWithIssues.length} day(s): ${employee.daysWithIssues.join(', ')}`
+                });
+            }
+        });
+
+        return summary;
     }
 
     /**
@@ -1111,8 +1415,11 @@ class TimesheetAPI {
             console.log(`   GET  /health - Health check`);
             console.log(`   GET  /holiday-ui - Holiday timesheet entry UI`);
             console.log(`   GET  /api/week-info - Get previous week info`);
-            console.log(`   POST /api/check-timesheets - Check specific date range`);
-            console.log(`   POST /api/check-previous-week - Check previous week`);
+            console.log(`   POST /api/check-timesheets - Check specific date range (weekly)`);
+            console.log(`   POST /api/check-previous-week - Check previous week (weekly)`);
+            console.log(`   POST /api/check-daily-timesheets - Check each working day individually`);
+            console.log(`   POST /api/check-previous-week-daily - Check previous week by working days`);
+            console.log(`   POST /api/missing-by-day - Summary of employees with missed days`);
             console.log(`   POST /api/missing-timesheets - Get users with no timesheet (N8N)`);
             console.log(`   POST /api/send-notification - Send email notification`);
             console.log(`   POST /api/send-slack-notification - Send Slack notification`);

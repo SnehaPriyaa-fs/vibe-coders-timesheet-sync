@@ -4,8 +4,8 @@
   "description": "Automated timesheet monitoring system for Fleet Studio",
   "main": "timesheet-monitor.js",
   "scripts": {
-    "start": "node timesheet-monitor.js",
-    "start:api": "node timesheet-api.js",
+    "start": "node server.js",
+    "start:api": "node server.js",
     "test": "node test-timesheet.js"
   },
   "dependencies": {
