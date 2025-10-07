@@ -1,0 +1,22 @@
+{
+  "name": "timesheet-monitor",
+  "version": "1.0.0",
+  "description": "Automated timesheet monitoring system for Fleet Studio",
+  "main": "timesheet-monitor.js",
+  "scripts": {
+    "start": "node timesheet-monitor.js",
+    "start:api": "node timesheet-api.js",
+    "test": "node test-timesheet.js"
+  },
+  "dependencies": {
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.0",
+    "nodemailer": "^6.9.7",
+    "dotenv": "^16.3.1",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "keywords": ["timesheet", "monitoring", "automation", "cron"],
+  "author": "Fleet Studio",
+  "license": "MIT"
+}
