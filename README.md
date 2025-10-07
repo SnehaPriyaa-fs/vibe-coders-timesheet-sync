@@ -4,11 +4,11 @@ An automated system that monitors employee timesheet submissions and sends notif
 
 ## Features
 
-- ⏰ **Automated Scheduling**: Runs every Monday at 12:00 PM and 5:00 PM
-- 📊 **Smart Analysis**: Identifies employees with no submission, partial submission, or flagged hours
-- 📧 **Email Notifications**: Sends detailed reports to admin and HR teams
-- 🔧 **Configurable**: Customizable thresholds and notification settings
-- 🧪 **Testing**: Built-in test functionality
+- **Automated Scheduling**: Runs every Monday at 12:00 PM and 5:00 PM
+- **Smart Analysis**: Identifies employees with no submission, partial submission, or flagged hours
+- **Email Notifications**: Sends detailed reports to admin and HR teams
+- **Configurable**: Customizable thresholds and notification settings
+- **Testing**: Built-in test functionality
 
 ## Installation
 
@@ -119,18 +119,18 @@ The system generates detailed HTML email reports including:
 The system provides comprehensive logging:
 
 ```
-🔄 Starting timesheet monitoring check...
-📅 Checking week 36: 2024-09-01 to 2024-09-07
-📊 Fetching timesheet data for 2024-09-01 to 2024-09-07
-✅ Successfully fetched 45 employee records
-📊 Analysis Complete:
+Starting timesheet monitoring check...
+Checking week 36: 2024-09-01 to 2024-09-07
+Fetching timesheet data for 2024-09-01 to 2024-09-07
+Successfully fetched 45 employee records
+Analysis Complete:
    - Total Employees: 45
    - No Submission: 3
    - Partial Submission: 2
    - Flagged Hours: 1
-📧 Sending notification for 6 issues...
-✅ Email notification sent successfully
-✅ Timesheet monitoring check completed successfully
+Sending notification for 6 issues...
+Email notification sent successfully
+Timesheet monitoring check completed successfully
 ```
 
 ## Deployment
