@@ -933,6 +933,11 @@ class TimesheetAPI {
      */
     start() {
         this.app.listen(this.port, () => {
+            console.log(' Timesheet Monitor API Server Started');
+            console.log(` App is running on port ${this.port}`);
+            console.log(` Health check: http://localhost:${this.port}/health`);
+            console.log('');
+            console.log('🔧 Ready for N8N integration!');
         });
     }
 }
