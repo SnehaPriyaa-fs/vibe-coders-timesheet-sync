@@ -87,7 +87,7 @@ class TimesheetAPI {
                     });
                 }
 
-                console.log(`📊 Checking timesheets for ${startDate} to ${endDate}`);
+                
                 
                 // Fetch timesheet data
                 const timesheetData = await this.fetchTimesheetData(startDate, endDate);
@@ -128,7 +128,6 @@ class TimesheetAPI {
                 res.json(result);
                 
             } catch (error) {
-                console.error('❌ Error in check-timesheets:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -141,8 +140,6 @@ class TimesheetAPI {
             try {
                 const { sendEmail = false } = req.body;
                 const weekInfo = this.getPreviousWeekRange();
-                
-                console.log(`📊 Checking previous week: ${weekInfo.startDate} to ${weekInfo.endDate}`);
                 
                 // Fetch timesheet data
                 const timesheetData = await this.fetchTimesheetData(weekInfo.startDate, weekInfo.endDate);
@@ -176,7 +173,7 @@ class TimesheetAPI {
                 res.json(result);
                 
             } catch (error) {
-                console.error('❌ Error in check-previous-week:', error.message);
+                console.error(' Error in check-previous-week:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -204,7 +201,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error sending notification:', error.message);
+                console.error(' Error sending notification:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -232,7 +229,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error sending Slack notification:', error.message);
+                console.error(' Error sending Slack notification:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -265,7 +262,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error sending notifications:', error.message);
+                console.error(' Error sending notifications:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -298,7 +295,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error sending Slack DMs:', error.message);
+                console.error(' Error sending Slack DMs:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -322,8 +319,6 @@ class TimesheetAPI {
                 } else {
                     weekInfo = { startDate, endDate };
                 }
-
-                console.log(`📊 Checking missing timesheets for ${weekInfo.startDate} to ${weekInfo.endDate}`);
                 
                 // Fetch timesheet data
                 const timesheetData = await this.fetchTimesheetData(weekInfo.startDate, weekInfo.endDate);
@@ -358,7 +353,7 @@ class TimesheetAPI {
                 res.json(response);
                 
             } catch (error) {
-                console.error('❌ Error fetching missing timesheets:', error.message);
+                console.error(' Error fetching missing timesheets:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -395,7 +390,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error fetching employee:', error.message);
+                console.error(' Error fetching employee:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -414,8 +409,6 @@ class TimesheetAPI {
                         error: 'startDate and endDate are required'
                     });
                 }
-
-                console.log(`📊 Checking daily timesheets for week ${startDate} to ${endDate}`);
                 
                 // Analyze timesheet data for each working day
                 const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(startDate, endDate);
@@ -447,7 +440,7 @@ class TimesheetAPI {
                 res.json(result);
                 
             } catch (error) {
-                console.error('❌ Error in check-daily-timesheets:', error.message);
+                console.error(' Error in check-daily-timesheets:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -460,8 +453,6 @@ class TimesheetAPI {
             try {
                 const { sendEmail = false } = req.body;
                 const weekInfo = this.getPreviousWeekRange();
-                
-                console.log(`📊 Checking previous week daily: ${weekInfo.startDate} to ${weekInfo.endDate}`);
                 
                 // Analyze timesheet data for each working day
                 const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(weekInfo.startDate, weekInfo.endDate);
@@ -493,7 +484,7 @@ class TimesheetAPI {
                 res.json(result);
                 
             } catch (error) {
-                console.error('❌ Error in check-previous-week-daily:', error.message);
+                console.error(' Error in check-previous-week-daily:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -561,7 +552,7 @@ class TimesheetAPI {
                     }
                 });
             } catch (error) {
-                console.error('❌ Error in missing-by-day:', error.message);
+                console.error(' Error in missing-by-day:', error.message);
                 res.status(500).json({ success: false, error: error.message });
             }
         });
@@ -593,8 +584,6 @@ class TimesheetAPI {
                     });
                 }
 
-                console.log(`📅 Posting holiday entry for ${entryDate}: ${timeSpent} hours`);
-
                 // Create the timesheet entry payload
                 const timesheetEntry = {
                     title: `${projectName}-${taskName}-${Date.now()}`,
@@ -624,7 +613,7 @@ class TimesheetAPI {
                 });
                 
             } catch (error) {
-                console.error('❌ Error posting holiday entry:', error.message);
+                console.error(' Error posting holiday entry:', error.message);
                 res.status(500).json({
                     success: false,
                     error: error.message
@@ -634,7 +623,7 @@ class TimesheetAPI {
 
         // Error handling middleware
         this.app.use((err, req, res, next) => {
-            console.error('❌ Unhandled error:', err);
+            console.error(' Unhandled error:', err);
             res.status(500).json({
                 success: false,
                 error: 'Internal server error'
@@ -760,7 +749,6 @@ class TimesheetAPI {
      */
     async fetchTimesheetData(startDate, endDate) {
         try {
-            console.log(`📊 Fetching timesheet data for ${startDate} to ${endDate}`);
             
             const response = await axios.get(`${this.apiUrl}/${startDate}/${endDate}`, {
                 timeout: 30000,
@@ -771,24 +759,17 @@ class TimesheetAPI {
             });
 
             if (response.status === 200) {
-                console.log(`✅ Successfully fetched ${response.data.length} employee records`);
                 
                 // Add sample user data
                 const sampleUsers = this.generateSampleUserData(startDate, endDate);
-                const dataWithSample = [...response.data, ...sampleUsers];
-                
-                console.log(`📝 Added ${sampleUsers.length} sample users:`);
-                sampleUsers.forEach(user => {
-                    console.log(`   - ${user.name} (${user.userId}) - ${user.timesheetStatus}`);
-                });
-                console.log(`📊 Total records (including samples): ${dataWithSample.length}`);
+                const dataWithSample = [...response.data, ...sampleUsers];             
                 
                 return dataWithSample;
             } else {
                 throw new Error(`API returned status ${response.status}`);
             }
         } catch (error) {
-            console.error('❌ Error fetching timesheet data:', error.message);
+            console.error(' Error fetching timesheet data:', error.message);
             throw error;
         }
     }
@@ -869,11 +850,8 @@ class TimesheetAPI {
         const workingDays = this.getWorkingDaysForWeek(startDate, endDate);
         const dailyAnalysis = [];
         
-        console.log(`📅 Analyzing ${workingDays.length} working days: ${workingDays.join(', ')}`);
-        
         for (const day of workingDays) {
             try {
-                console.log(`📊 Checking timesheet for ${day}...`);
                 
                 // Fetch timesheet data for this specific day
                 const timesheetData = await this.fetchTimesheetData(day, day);
@@ -889,10 +867,8 @@ class TimesheetAPI {
                     issuesFound: analysis.noSubmission.length + analysis.flaggedHours.length
                 });
                 
-                console.log(`✅ ${day}: ${analysis.noSubmission.length} employees with no submission, ${analysis.flaggedHours.length} with flagged hours`);
-                
             } catch (error) {
-                console.error(`❌ Error analyzing ${day}:`, error.message);
+                console.error(` Error analyzing ${day}:`, error.message);
                 dailyAnalysis.push({
                     date: day,
                     dayName: this.getDayName(day),
@@ -1017,13 +993,13 @@ class TimesheetAPI {
         </head>
         <body>
             <div class="header">
-                <h2>📊 Weekly Timesheet Monitoring Report</h2>
+                <h2> Weekly Timesheet Monitoring Report</h2>
                 <p><strong>Week:</strong> ${weekNumber} (${startDate} to ${endDate})</p>
                 <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
             </div>
 
             <div class="summary">
-                <h3>📈 Summary</h3>
+                <h3> Summary</h3>
                 <ul>
                     <li><strong>Total Employees:</strong> ${issues.totalEmployees}</li>
                     <li><strong>No Submission:</strong> ${issues.noSubmission.length}</li>
@@ -1037,7 +1013,7 @@ class TimesheetAPI {
         if (issues.noSubmission.length > 0) {
             htmlContent += `
                 <div class="section">
-                    <h3>🚨 No Timesheet Submission (${issues.noSubmission.length} employees)</h3>
+                    <h3>No Timesheet Submission (${issues.noSubmission.length} employees)</h3>
                     <div class="issue-list">
             `;
             issues.noSubmission.forEach(emp => {
@@ -1055,7 +1031,7 @@ class TimesheetAPI {
         if (issues.partialSubmission.length > 0) {
             htmlContent += `
                 <div class="section">
-                    <h3>⚠️ Incomplete Timesheet Submission (${issues.partialSubmission.length} employees)</h3>
+                    <h3> Incomplete Timesheet Submission (${issues.partialSubmission.length} employees)</h3>
                     <div class="issue-list">
             `;
             issues.partialSubmission.forEach(emp => {
@@ -1073,7 +1049,7 @@ class TimesheetAPI {
         if (issues.flaggedHours.length > 0) {
             htmlContent += `
                 <div class="section">
-                    <h3>🚩 Flagged Hours Requiring Review (${issues.flaggedHours.length} employees)</h3>
+                    <h3> Flagged Hours Requiring Review (${issues.flaggedHours.length} employees)</h3>
                     <div class="issue-list">
             `;
             issues.flaggedHours.forEach(emp => {
@@ -1104,7 +1080,6 @@ class TimesheetAPI {
      */
     async sendSlackNotification(issues, weekInfo) {
         if (!this.slackWebhookUrl) {
-            console.log('⚠️ Slack webhook URL not configured, skipping Slack notification');
             return;
         }
 
@@ -1116,7 +1091,7 @@ class TimesheetAPI {
                 channel: this.slackChannel,
                 username: "Timesheet Monitor",
                 icon_emoji: ":chart_with_upwards_trend:",
-                text: `📊 Weekly Timesheet Report - Week ${weekNumber}`,
+                text: ` Weekly Timesheet Report - Week ${weekNumber}`,
                 attachments: [
                     {
                         color: totalIssues > 0 ? "warning" : "good",
@@ -1160,7 +1135,7 @@ class TimesheetAPI {
                 // No submission details
                 if (issues.noSubmission.length > 0) {
                     issueDetails.push({
-                        title: `🚨 No Timesheet Submission (${issues.noSubmission.length})`,
+                        title: `No Timesheet Submission (${issues.noSubmission.length})`,
                         value: issues.noSubmission.slice(0, 5).map(emp => 
                             `• ${emp.name} (${emp.employementStatus}) - ${emp.loggedHours}h logged`
                         ).join('\n') + (issues.noSubmission.length > 5 ? `\n... and ${issues.noSubmission.length - 5} more` : ''),
@@ -1171,7 +1146,7 @@ class TimesheetAPI {
                 // Partial submission details
                 if (issues.partialSubmission.length > 0) {
                     issueDetails.push({
-                        title: `⚠️ Incomplete Submission (${issues.partialSubmission.length})`,
+                        title: ` Incomplete Submission (${issues.partialSubmission.length})`,
                         value: issues.partialSubmission.slice(0, 5).map(emp => 
                             `• ${emp.name} (${emp.employementStatus}) - ${emp.loggedHours}h logged (${emp.shortfall}h short)`
                         ).join('\n') + (issues.partialSubmission.length > 5 ? `\n... and ${issues.partialSubmission.length - 5} more` : ''),
@@ -1182,7 +1157,7 @@ class TimesheetAPI {
                 // Flagged hours details
                 if (issues.flaggedHours.length > 0) {
                     issueDetails.push({
-                        title: `🚩 Flagged Hours (${issues.flaggedHours.length})`,
+                        title: ` Flagged Hours (${issues.flaggedHours.length})`,
                         value: issues.flaggedHours.slice(0, 5).map(emp => 
                             `• ${emp.name} - ${emp.flaggedHours}h flagged`
                         ).join('\n') + (issues.flaggedHours.length > 5 ? `\n... and ${issues.flaggedHours.length - 5} more` : ''),
@@ -1200,12 +1175,12 @@ class TimesheetAPI {
             });
 
             if (response.status === 200) {
-                console.log('✅ Slack notification sent successfully');
+                console.log('Slack notification sent successfully');
             } else {
-                console.log('⚠️ Slack notification may not have been delivered');
+                console.log('Slack notification may not have been delivered');
             }
         } catch (error) {
-            console.error('❌ Error sending Slack notification:', error.message);
+            console.error('Error sending Slack notification:', error.message);
             throw error;
         }
     }
@@ -1213,31 +1188,29 @@ class TimesheetAPI {
     /**
      * Send email notification
      */
-    async sendNotification(issues, weekInfo) {
-        try {
-            const emailContent = this.generateEmailReport(issues, weekInfo);
+    // async sendNotification(issues, weekInfo) {
+    //     try {
+    //         const emailContent = this.generateEmailReport(issues, weekInfo);
             
-            const mailOptions = {
-                from: process.env.SMTP_USER,
-                to: [this.adminEmail, this.hrEmail].join(', '),
-                subject: `📊 Weekly Timesheet Report - Week ${weekInfo.weekNumber} (${weekInfo.startDate} to ${weekInfo.endDate})`,
-                html: emailContent
-            };
+    //         const mailOptions = {
+    //             from: process.env.SMTP_USER,
+    //             to: [this.adminEmail, this.hrEmail].join(', '),
+    //             subject: ` Weekly Timesheet Report - Week ${weekInfo.weekNumber} (${weekInfo.startDate} to ${weekInfo.endDate})`,
+    //             html: emailContent
+    //         };
 
-            await this.transporter.sendMail(mailOptions);
-            console.log('✅ Email notification sent successfully');
-        } catch (error) {
-            console.error('❌ Error sending email notification:', error.message);
-            throw error;
-        }
-    }
+    //         await this.transporter.sendMail(mailOptions);
+    //     } catch (error) {
+    //         console.error(' Error sending email notification:', error.message);
+    //         throw error;
+    //     }
+    // }
 
     /**
      * Send direct message to a specific Slack user
      */
     async sendSlackDM(userId, message) {
         if (!this.slackBotToken) {
-            console.log('⚠️ Slack bot token not configured, skipping DM');
             return false;
         }
 
@@ -1254,14 +1227,13 @@ class TimesheetAPI {
             });
 
             if (response.data.ok) {
-                console.log(`✅ DM sent successfully to user ${userId}`);
                 return true;
             } else {
-                console.error(`❌ Failed to send DM to ${userId}:`, response.data.error);
+                console.error(` Failed to send DM to ${userId}:`, response.data.error);
                 return false;
             }
         } catch (error) {
-            console.error('❌ Error sending Slack DM:', error.message);
+            console.error(' Error sending Slack DM:', error.message);
             return false;
         }
     }
@@ -1271,7 +1243,6 @@ class TimesheetAPI {
      */
     async sendMissingTimesheetDMs(issues, weekInfo) {
         if (!this.slackBotToken) {
-            console.log('⚠️ Slack bot token not configured, skipping DMs');
             return;
         }
 
@@ -1280,39 +1251,38 @@ class TimesheetAPI {
 
         // Send DMs to users with no submission
         issues.noSubmission.forEach(employee => {
-            const message = `🚨 *Timesheet Reminder*\n\nHi ${employee.name}!\n\nYou haven't submitted your timesheet for Week ${weekNumber} (${startDate} to ${endDate}).\n\nPlease submit your timesheet as soon as possible.\n\nIf you have any questions, please contact HR.\n\nThanks!`;
+            const message = `*Timesheet Reminder*\n\nHi ${employee.name}!\n\nYou haven't submitted your timesheet for Week ${weekNumber} (${startDate} to ${endDate}).\n\nPlease submit your timesheet as soon as possible.\n\nIf you have any questions, please contact HR.\n\nThanks!`;
             
             dmPromises.push(
                 this.sendSlackDM(employee.userId, message).catch(error => {
-                    console.error(`❌ Failed to send DM to ${employee.name}:`, error.message);
+                    console.error(` Failed to send DM to ${employee.name}:`, error.message);
                 })
             );
         });
 
         // Send DMs to users with partial submission
         issues.partialSubmission.forEach(employee => {
-            const message = `⚠️ *Incomplete Timesheet Reminder*\n\nHi ${employee.name}!\n\nYour timesheet for Week ${weekNumber} (${startDate} to ${endDate}) is incomplete.\n\nYou've logged ${employee.loggedHours} hours but need ${employee.allocatedHours} hours.\n\nPlease complete your timesheet submission.\n\nThanks!`;
+            const message = ` *Incomplete Timesheet Reminder*\n\nHi ${employee.name}!\n\nYour timesheet for Week ${weekNumber} (${startDate} to ${endDate}) is incomplete.\n\nYou've logged ${employee.loggedHours} hours but need ${employee.allocatedHours} hours.\n\nPlease complete your timesheet submission.\n\nThanks!`;
             
             dmPromises.push(
                 this.sendSlackDM(employee.userId, message).catch(error => {
-                    console.error(`❌ Failed to send DM to ${employee.name}:`, error.message);
+                    console.error(` Failed to send DM to ${employee.name}:`, error.message);
                 })
             );
         });
 
         // Send DMs to users with flagged hours
         issues.flaggedHours.forEach(employee => {
-            const message = `🚩 *Flagged Hours Alert*\n\nHi ${employee.name}!\n\nYour timesheet for Week ${weekNumber} (${startDate} to ${endDate}) has ${employee.flaggedHours} flagged hours that require review.\n\nPlease review and correct any flagged entries.\n\nThanks!`;
+            const message = ` *Flagged Hours Alert*\n\nHi ${employee.name}!\n\nYour timesheet for Week ${weekNumber} (${startDate} to ${endDate}) has ${employee.flaggedHours} flagged hours that require review.\n\nPlease review and correct any flagged entries.\n\nThanks!`;
             
             dmPromises.push(
                 this.sendSlackDM(employee.userId, message).catch(error => {
-                    console.error(`❌ Failed to send DM to ${employee.name}:`, error.message);
+                    console.error(` Failed to send DM to ${employee.name}:`, error.message);
                 })
             );
         });
 
         await Promise.all(dmPromises);
-        console.log(`📱 Sent ${dmPromises.length} direct messages`);
     }
 
     /**
@@ -1324,21 +1294,21 @@ class TimesheetAPI {
         // Send email notification
         notifications.push(
             this.sendNotification(issues, weekInfo).catch(error => {
-                console.error('❌ Email notification failed:', error.message);
+                console.error(' Email notification failed:', error.message);
             })
         );
         
         // Send Slack notification
         notifications.push(
             this.sendSlackNotification(issues, weekInfo).catch(error => {
-                console.error('❌ Slack notification failed:', error.message);
+                console.error(' Slack notification failed:', error.message);
             })
         );
         
         // Send DMs to individual users
         notifications.push(
             this.sendMissingTimesheetDMs(issues, weekInfo).catch(error => {
-                console.error('❌ Slack DMs failed:', error.message);
+                console.error(' Slack DMs failed:', error.message);
             })
         );
         
@@ -1354,8 +1324,6 @@ class TimesheetAPI {
             const mockMode = process.env.MOCK_MODE === 'true';
             
             if (mockMode) {
-                console.log('🧪 MOCK MODE: Simulating successful timesheet entry');
-                console.log(`📝 Entry data:`, JSON.stringify(timesheetEntry, null, 2));
                 
                 // Simulate a successful response
                 return {
@@ -1369,9 +1337,6 @@ class TimesheetAPI {
             // Get the timesheet API URL from environment or use default
             const timesheetPostUrl = process.env.TIMESHEET_POST_URL || 'http://172.104.26.247:3999/api/create/timesheet';
             
-            console.log(`📤 Posting timesheet entry to: ${timesheetPostUrl}`);
-            console.log(`📝 Entry data:`, JSON.stringify(timesheetEntry, null, 2));
-            
             const response = await axios.post(timesheetPostUrl, [timesheetEntry], {
                 timeout: 30000,
                 headers: {
@@ -1381,13 +1346,12 @@ class TimesheetAPI {
             });
 
             if (response.status === 200 || response.status === 201) {
-                console.log(`✅ Timesheet entry posted successfully`);
                 return response.data;
             } else {
                 throw new Error(`API returned status ${response.status}`);
             }
         } catch (error) {
-            console.error('❌ Error posting timesheet entry:');
+            console.error(' Error posting timesheet entry:');
             if (error.response) {
                 console.error(`   Status: ${error.response.status}`);
                 console.error(`   Data: ${JSON.stringify(error.response.data, null, 2)}`);
@@ -1408,27 +1372,6 @@ class TimesheetAPI {
      */
     start() {
         this.app.listen(this.port, () => {
-            console.log('🚀 Timesheet Monitor API Server Started');
-            console.log(`📡 Server running on port ${this.port}`);
-            console.log(`🌐 Health check: http://localhost:${this.port}/health`);
-            console.log(`📊 API Documentation:`);
-            console.log(`   GET  /health - Health check`);
-            console.log(`   GET  /holiday-ui - Holiday timesheet entry UI`);
-            console.log(`   GET  /api/week-info - Get previous week info`);
-            console.log(`   POST /api/check-timesheets - Check specific date range (weekly)`);
-            console.log(`   POST /api/check-previous-week - Check previous week (weekly)`);
-            console.log(`   POST /api/check-daily-timesheets - Check each working day individually`);
-            console.log(`   POST /api/check-previous-week-daily - Check previous week by working days`);
-            console.log(`   POST /api/missing-by-day - Summary of employees with missed days`);
-            console.log(`   POST /api/missing-timesheets - Get users with no timesheet (N8N)`);
-            console.log(`   POST /api/send-notification - Send email notification`);
-            console.log(`   POST /api/send-slack-notification - Send Slack notification`);
-            console.log(`   POST /api/send-slack-dms - Send DMs to users with issues`);
-            console.log(`   POST /api/send-all-notifications - Send email, Slack, and DMs`);
-            console.log(`   GET  /api/employee/:userId - Get employee details`);
-            console.log(`   POST /api/post-holiday - Post holiday timesheet entry`);
-            console.log('');
-            console.log('🔧 Ready for N8N integration!');
         });
     }
 }
@@ -1440,7 +1383,6 @@ if (require.main === module) {
     
     // Graceful shutdown
     process.on('SIGINT', () => {
-        console.log('\n👋 Shutting down Timesheet Monitor API...');
         process.exit(0);
     });
 }
