@@ -75,425 +75,7 @@ class TimesheetAPI {
             }
         });
 
-        // Check timesheets for specific date range
-        this.app.post('/api/check-timesheets', async (req, res) => {
-            try {
-                const { startDate, endDate, sendEmail = false } = req.body;
-                
-                if (!startDate || !endDate) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'startDate and endDate are required'
-                    });
-                }
-
-                
-                
-                // Fetch timesheet data
-                const timesheetData = await this.fetchTimesheetData(startDate, endDate);
-                
-                // Analyze data
-                const analysis = this.analyzeTimesheetData(timesheetData);
-                
-                // Add week info
-                const weekInfo = {
-                    startDate,
-                    endDate,
-                    weekNumber: this.getWeekNumber(new Date(startDate))
-                };
-
-                const result = {
-                    success: true,
-                    data: {
-                        weekInfo,
-                        analysis,
-                        timesheetData: timesheetData.length,
-                        issuesFound: analysis.noSubmission.length + analysis.partialSubmission.length + analysis.flaggedHours.length
-                    }
-                };
-
-                // Send notifications if requested
-                if (sendEmail && (analysis.noSubmission.length > 0 || analysis.partialSubmission.length > 0 || analysis.flaggedHours.length > 0)) {
-                    try {
-                        await this.sendAllNotifications(analysis, weekInfo);
-                        result.data.notificationsSent = {
-                            email: true,
-                            slack: !!this.slackWebhookUrl
-                        };
-                    } catch (notificationError) {
-                        result.data.notificationError = notificationError.message;
-                    }
-                }
-
-                res.json(result);
-                
-            } catch (error) {
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Check previous week's timesheets (convenience endpoint)
-        this.app.post('/api/check-previous-week', async (req, res) => {
-            try {
-                const { sendEmail = false } = req.body;
-                const weekInfo = this.getPreviousWeekRange();
-                
-                // Fetch timesheet data
-                const timesheetData = await this.fetchTimesheetData(weekInfo.startDate, weekInfo.endDate);
-                
-                // Analyze data
-                const analysis = this.analyzeTimesheetData(timesheetData);
-                
-                const result = {
-                    success: true,
-                    data: {
-                        weekInfo,
-                        analysis,
-                        timesheetData: timesheetData.length,
-                        issuesFound: analysis.noSubmission.length + analysis.partialSubmission.length + analysis.flaggedHours.length
-                    }
-                };
-
-                // Send notifications if requested
-                if (sendEmail && (analysis.noSubmission.length > 0 || analysis.partialSubmission.length > 0 || analysis.flaggedHours.length > 0)) {
-                    try {
-                        await this.sendAllNotifications(analysis, weekInfo);
-                        result.data.notificationsSent = {
-                            email: true,
-                            slack: !!this.slackWebhookUrl
-                        };
-                    } catch (notificationError) {
-                        result.data.notificationError = notificationError.message;
-                    }
-                }
-
-                res.json(result);
-                
-            } catch (error) {
-                console.error(' Error in check-previous-week:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Send email notification manually
-        this.app.post('/api/send-notification', async (req, res) => {
-            try {
-                const { analysis, weekInfo } = req.body;
-                
-                if (!analysis || !weekInfo) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'analysis and weekInfo are required'
-                    });
-                }
-
-                await this.sendNotification(analysis, weekInfo);
-                
-                res.json({
-                    success: true,
-                    message: 'Email notification sent successfully'
-                });
-                
-            } catch (error) {
-                console.error(' Error sending notification:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Send Slack notification manually
-        this.app.post('/api/send-slack-notification', async (req, res) => {
-            try {
-                const { analysis, weekInfo } = req.body;
-                
-                if (!analysis || !weekInfo) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'analysis and weekInfo are required'
-                    });
-                }
-
-                await this.sendSlackNotification(analysis, weekInfo);
-                
-                res.json({
-                    success: true,
-                    message: 'Slack notification sent successfully'
-                });
-                
-            } catch (error) {
-                console.error(' Error sending Slack notification:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Send both email and Slack notifications
-        this.app.post('/api/send-all-notifications', async (req, res) => {
-            try {
-                const { analysis, weekInfo } = req.body;
-                
-                if (!analysis || !weekInfo) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'analysis and weekInfo are required'
-                    });
-                }
-
-                await this.sendAllNotifications(analysis, weekInfo);
-                
-                res.json({
-                    success: true,
-                    message: 'All notifications sent successfully',
-                    notificationsSent: {
-                        email: true,
-                        slack: !!this.slackWebhookUrl,
-                        dms: !!this.slackBotToken
-                    }
-                });
-                
-            } catch (error) {
-                console.error(' Error sending notifications:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Send DMs to users with missing timesheets
-        this.app.post('/api/send-slack-dms', async (req, res) => {
-            try {
-                const { analysis, weekInfo } = req.body;
-                
-                if (!analysis || !weekInfo) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'analysis and weekInfo are required'
-                    });
-                }
-
-                await this.sendMissingTimesheetDMs(analysis, weekInfo);
-                
-                res.json({
-                    success: true,
-                    message: 'Slack DMs sent successfully',
-                    dmsSent: {
-                        noSubmission: analysis.noSubmission.length,
-                        partialSubmission: analysis.partialSubmission.length,
-                        flaggedHours: analysis.flaggedHours.length
-                    }
-                });
-                
-            } catch (error) {
-                console.error(' Error sending Slack DMs:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Get users who haven't filled timesheets (N8N specific endpoint)
-        this.app.post('/api/missing-timesheets', async (req, res) => {
-            try {
-                const { startDate, endDate, previousWeek = false } = req.body;
-                
-                let weekInfo;
-                if (previousWeek) {
-                    weekInfo = this.getPreviousWeekRange();
-                } else if (!startDate || !endDate) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Either provide startDate and endDate, or set previousWeek to true'
-                    });
-                } else {
-                    weekInfo = { startDate, endDate };
-                }
-                
-                // Fetch timesheet data
-                const timesheetData = await this.fetchTimesheetData(weekInfo.startDate, weekInfo.endDate);
-                
-                // Filter only users with no submission
-                const missingTimesheets = timesheetData.filter(employee => {
-                    const { loggedHours, isActive } = employee;
-                    return isActive && loggedHours === 0;
-                });
-
-                // Format response for N8N
-                const response = {
-                    success: true,
-                    data: {
-                        weekInfo,
-                        missingCount: missingTimesheets.length,
-                        totalEmployees: timesheetData.length,
-                        missingEmployees: missingTimesheets.map(emp => ({
-                            name: emp.name,
-                            userId: emp.userId,
-                            email: emp.email || 'N/A',
-                            allocatedHours: emp.allocatedHours,
-                            loggedHours: emp.loggedHours,
-                            employementStatus: emp.employementStatus,
-                            isActive: emp.isActive,
-                            issue: 'No timesheet submission'
-                        })),
-                        checkedAt: new Date().toISOString()
-                    }
-                };
-
-                res.json(response);
-                
-            } catch (error) {
-                console.error(' Error fetching missing timesheets:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Get employee details by ID
-        this.app.get('/api/employee/:userId', async (req, res) => {
-            try {
-                const { userId } = req.params;
-                const { startDate, endDate } = req.query;
-                
-                if (!startDate || !endDate) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'startDate and endDate query parameters are required'
-                    });
-                }
-
-                const timesheetData = await this.fetchTimesheetData(startDate, endDate);
-                const employee = timesheetData.find(emp => emp.userId === userId);
-                
-                if (!employee) {
-                    return res.status(404).json({
-                        success: false,
-                        error: 'Employee not found'
-                    });
-                }
-
-                res.json({
-                    success: true,
-                    data: employee
-                });
-                
-            } catch (error) {
-                console.error(' Error fetching employee:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Check timesheets for each working day of the week
-        this.app.post('/api/check-daily-timesheets', async (req, res) => {
-            try {
-                const { startDate, endDate, sendEmail = false } = req.body;
-                
-                if (!startDate || !endDate) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'startDate and endDate are required'
-                    });
-                }
-                
-                // Analyze timesheet data for each working day
-                const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(startDate, endDate);
-                
-                const result = {
-                    success: true,
-                    data: dailyAnalysis
-                };
-
-                // Send notifications if requested and there are issues
-                const totalIssues = dailyAnalysis.dailyAnalysis.reduce((sum, day) => {
-                    return sum + (day.analysis ? day.analysis.noSubmission.length + day.analysis.flaggedHours.length : 0);
-                }, 0);
-
-                if (sendEmail && totalIssues > 0) {
-                    try {
-                        // Create a summary analysis for notifications
-                        const summaryAnalysis = this.createSummaryAnalysis(dailyAnalysis);
-                        await this.sendAllNotifications(summaryAnalysis, dailyAnalysis.weekInfo);
-                        result.data.notificationsSent = {
-                            email: true,
-                            slack: !!this.slackWebhookUrl
-                        };
-                    } catch (notificationError) {
-                        result.data.notificationError = notificationError.message;
-                    }
-                }
-
-                res.json(result);
-                
-            } catch (error) {
-                console.error(' Error in check-daily-timesheets:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Check previous week's timesheets by working days
-        this.app.post('/api/check-previous-week-daily', async (req, res) => {
-            try {
-                const { sendEmail = false } = req.body;
-                const weekInfo = this.getPreviousWeekRange();
-                
-                // Analyze timesheet data for each working day
-                const dailyAnalysis = await this.analyzeTimesheetDataByWorkingDays(weekInfo.startDate, weekInfo.endDate);
-                
-                const result = {
-                    success: true,
-                    data: dailyAnalysis
-                };
-
-                // Send notifications if requested and there are issues
-                const totalIssues = dailyAnalysis.dailyAnalysis.reduce((sum, day) => {
-                    return sum + (day.analysis ? day.analysis.noSubmission.length + day.analysis.flaggedHours.length : 0);
-                }, 0);
-
-                if (sendEmail && totalIssues > 0) {
-                    try {
-                        // Create a summary analysis for notifications
-                        const summaryAnalysis = this.createSummaryAnalysis(dailyAnalysis);
-                        await this.sendAllNotifications(summaryAnalysis, dailyAnalysis.weekInfo);
-                        result.data.notificationsSent = {
-                            email: true,
-                            slack: !!this.slackWebhookUrl
-                        };
-                    } catch (notificationError) {
-                        result.data.notificationError = notificationError.message;
-                    }
-                }
-
-                res.json(result);
-                
-            } catch (error) {
-                console.error(' Error in check-previous-week-daily:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
-
-        // Get per-employee summary of missed days (0 hours) within a week
-        this.app.post('/api/missing-by-day', async (req, res) => {
+       this.app.post('/api/missing-by-day', async (req, res) => {
             try {
                 const { startDate, endDate, previousWeek = false } = req.body;
 
@@ -558,68 +140,68 @@ class TimesheetAPI {
         });
 
         // Post holiday timesheet entry
-        this.app.post('/api/post-holiday', async (req, res) => {
-            try {
-                const { 
-                    projectName = '00-Holiday', 
-                    taskName = 'Holiday/Leave', 
-                    entryDate, 
-                    ticketNumber = 'NIL', 
-                    timeSpent = 8, 
-                    details = 'Holiday',
-                    userId 
-                } = req.body;
+        // this.app.post('/api/post-holiday', async (req, res) => {
+        //     try {
+        //         const { 
+        //             projectName = '00-Holiday', 
+        //             taskName = 'Holiday/Leave', 
+        //             entryDate, 
+        //             ticketNumber = 'NIL', 
+        //             timeSpent = 8, 
+        //             details = 'Holiday',
+        //             userId 
+        //         } = req.body;
                 
-                if (!entryDate) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'entryDate is required'
-                    });
-                }
+        //         if (!entryDate) {
+        //             return res.status(400).json({
+        //                 success: false,
+        //                 error: 'entryDate is required'
+        //             });
+        //         }
 
-                if (!userId) {
-                    return res.status(400).json({
-                        success: false,
-                        error: 'userId is required'
-                    });
-                }
+        //         if (!userId) {
+        //             return res.status(400).json({
+        //                 success: false,
+        //                 error: 'userId is required'
+        //             });
+        //         }
 
-                // Create the timesheet entry payload
-                const timesheetEntry = {
-                    title: `${projectName}-${taskName}-${Date.now()}`,
-                    uid: userId,
-                    field_entrydate: entryDate,
-                    field_ticket_number: ticketNumber,
-                    field_proj: projectName, // Using project name as project ID for holiday
-                    field_entrytask: taskName,
-                    body: details,
-                    field_time_spent: timeSpent.toString()
-                };
+        //         // Create the timesheet entry payload
+        //         const timesheetEntry = {
+        //             title: `${projectName}-${taskName}-${Date.now()}`,
+        //             uid: userId,
+        //             field_entrydate: entryDate,
+        //             field_ticket_number: ticketNumber,
+        //             field_proj: projectName, // Using project name as project ID for holiday
+        //             field_entrytask: taskName,
+        //             body: details,
+        //             field_time_spent: timeSpent.toString()
+        //         };
 
-                // Post to the timesheet API
-                const response = await this.postTimesheetEntry(timesheetEntry);
+        //         // Post to the timesheet API
+        //         const response = await this.postTimesheetEntry(timesheetEntry);
                 
-                res.json({
-                    success: true,
-                    message: 'Holiday timesheet entry posted successfully',
-                    data: {
-                        entryDate,
-                        timeSpent,
-                        projectName,
-                        taskName,
-                        details,
-                        timesheetId: response.id || 'N/A'
-                    }
-                });
+        //         res.json({
+        //             success: true,
+        //             message: 'Holiday timesheet entry posted successfully',
+        //             data: {
+        //                 entryDate,
+        //                 timeSpent,
+        //                 projectName,
+        //                 taskName,
+        //                 details,
+        //                 timesheetId: response.id || 'N/A'
+        //             }
+        //         });
                 
-            } catch (error) {
-                console.error(' Error posting holiday entry:', error.message);
-                res.status(500).json({
-                    success: false,
-                    error: error.message
-                });
-            }
-        });
+        //     } catch (error) {
+        //         console.error(' Error posting holiday entry:', error.message);
+        //         res.status(500).json({
+        //             success: false,
+        //             error: error.message
+        //         });
+        //     }
+        // });
 
         // Error handling middleware
         this.app.use((err, req, res, next) => {
@@ -1184,27 +766,6 @@ class TimesheetAPI {
             throw error;
         }
     }
-
-    /**
-     * Send email notification
-     */
-    // async sendNotification(issues, weekInfo) {
-    //     try {
-    //         const emailContent = this.generateEmailReport(issues, weekInfo);
-            
-    //         const mailOptions = {
-    //             from: process.env.SMTP_USER,
-    //             to: [this.adminEmail, this.hrEmail].join(', '),
-    //             subject: ` Weekly Timesheet Report - Week ${weekInfo.weekNumber} (${weekInfo.startDate} to ${weekInfo.endDate})`,
-    //             html: emailContent
-    //         };
-
-    //         await this.transporter.sendMail(mailOptions);
-    //     } catch (error) {
-    //         console.error(' Error sending email notification:', error.message);
-    //         throw error;
-    //     }
-    // }
 
     /**
      * Send direct message to a specific Slack user
