@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const axios = require('axios');
-const nodemailer = require('nodemailer');
 require('dotenv').config();
 
 class TimesheetAPI {
@@ -10,17 +9,6 @@ class TimesheetAPI {
         this.port = process.env.PORT || 3000;
         this.apiUrl = process.env.TIMESHEET_API_URL || 'https://timesheet-be.fleetstudio.com/api/user/reports/filter';
         this.minimumHours = parseInt(process.env.MINIMUM_HOURS_THRESHOLD) || 32;
-        
-        // Email configuration
-        this.transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || 'smtp.gmail.com',
-            port: parseInt(process.env.SMTP_PORT) || 587,
-            secure: false,
-            auth: {
-                user: process.env.SMTP_USER,
-                pass: process.env.SMTP_PASS
-            }
-        });
         
         this.adminEmail = process.env.ADMIN_EMAIL || 'admin@fleetstudio.com';
         this.hrEmail = process.env.HR_EMAIL || 'hr@fleetstudio.com';
@@ -45,18 +33,12 @@ class TimesheetAPI {
     }
 
     setupRoutes() {
-        // Health check endpoint
         this.app.get('/health', (req, res) => {
             res.json({ 
                 status: 'healthy', 
                 timestamp: new Date().toISOString(),
                 service: 'Timesheet Monitor API'
             });
-        });
-
-        // Serve holiday timesheet UI
-        this.app.get('/holiday-ui', (req, res) => {
-            res.sendFile(__dirname + '/holiday-timesheet-ui.html');
         });
 
         // Get previous week's date range
@@ -138,70 +120,6 @@ class TimesheetAPI {
                 res.status(500).json({ success: false, error: error.message });
             }
         });
-
-        // Post holiday timesheet entry
-        // this.app.post('/api/post-holiday', async (req, res) => {
-        //     try {
-        //         const { 
-        //             projectName = '00-Holiday', 
-        //             taskName = 'Holiday/Leave', 
-        //             entryDate, 
-        //             ticketNumber = 'NIL', 
-        //             timeSpent = 8, 
-        //             details = 'Holiday',
-        //             userId 
-        //         } = req.body;
-                
-        //         if (!entryDate) {
-        //             return res.status(400).json({
-        //                 success: false,
-        //                 error: 'entryDate is required'
-        //             });
-        //         }
-
-        //         if (!userId) {
-        //             return res.status(400).json({
-        //                 success: false,
-        //                 error: 'userId is required'
-        //             });
-        //         }
-
-        //         // Create the timesheet entry payload
-        //         const timesheetEntry = {
-        //             title: `${projectName}-${taskName}-${Date.now()}`,
-        //             uid: userId,
-        //             field_entrydate: entryDate,
-        //             field_ticket_number: ticketNumber,
-        //             field_proj: projectName, // Using project name as project ID for holiday
-        //             field_entrytask: taskName,
-        //             body: details,
-        //             field_time_spent: timeSpent.toString()
-        //         };
-
-        //         // Post to the timesheet API
-        //         const response = await this.postTimesheetEntry(timesheetEntry);
-                
-        //         res.json({
-        //             success: true,
-        //             message: 'Holiday timesheet entry posted successfully',
-        //             data: {
-        //                 entryDate,
-        //                 timeSpent,
-        //                 projectName,
-        //                 taskName,
-        //                 details,
-        //                 timesheetId: response.id || 'N/A'
-        //             }
-        //         });
-                
-        //     } catch (error) {
-        //         console.error(' Error posting holiday entry:', error.message);
-        //         res.status(500).json({
-        //             success: false,
-        //             error: error.message
-        //         });
-        //     }
-        // });
 
         // Error handling middleware
         this.app.use((err, req, res, next) => {
@@ -483,181 +401,6 @@ class TimesheetAPI {
     }
 
     /**
-     * Create summary analysis from daily analysis for notifications
-     */
-    createSummaryAnalysis(dailyAnalysis) {
-        const summary = {
-            noSubmission: [],
-            partialSubmission: [], // Not used in daily analysis
-            flaggedHours: [],
-            totalEmployees: 0,
-            analyzedAt: new Date().toISOString()
-        };
-
-        // Collect all unique employees with issues across all days
-        const employeeIssues = new Map();
-
-        dailyAnalysis.dailyAnalysis.forEach(day => {
-            if (day.analysis) {
-                // Add no submission employees
-                day.analysis.noSubmission.forEach(emp => {
-                    const key = emp.userId;
-                    if (!employeeIssues.has(key)) {
-                        employeeIssues.set(key, {
-                            ...emp,
-                            daysWithIssues: [],
-                            totalDaysWithNoSubmission: 0
-                        });
-                    }
-                    const employee = employeeIssues.get(key);
-                    employee.daysWithIssues.push(day.date);
-                    employee.totalDaysWithNoSubmission++;
-                });
-
-                // Add flagged hours employees
-                day.analysis.flaggedHours.forEach(emp => {
-                    const key = emp.userId;
-                    if (!employeeIssues.has(key)) {
-                        employeeIssues.set(key, {
-                            ...emp,
-                            daysWithIssues: [],
-                            totalDaysWithNoSubmission: 0
-                        });
-                    }
-                    const employee = employeeIssues.get(key);
-                    if (!employee.daysWithIssues.includes(day.date)) {
-                        employee.daysWithIssues.push(day.date);
-                    }
-                });
-
-                // Update total employees count
-                summary.totalEmployees = Math.max(summary.totalEmployees, day.totalEmployees);
-            }
-        });
-
-        // Convert map to arrays
-        employeeIssues.forEach(employee => {
-            if (employee.totalDaysWithNoSubmission > 0) {
-                summary.noSubmission.push({
-                    ...employee,
-                    issue: `No timesheet submission for ${employee.totalDaysWithNoSubmission} day(s): ${employee.daysWithIssues.join(', ')}`
-                });
-            }
-            if (employee.flaggedHours > 0) {
-                summary.flaggedHours.push({
-                    ...employee,
-                    issue: `Flagged hours on ${employee.daysWithIssues.length} day(s): ${employee.daysWithIssues.join(', ')}`
-                });
-            }
-        });
-
-        return summary;
-    }
-
-    /**
-     * Generate email report
-     */
-    generateEmailReport(issues, weekInfo) {
-        const { startDate, endDate, weekNumber } = weekInfo;
-        
-        let htmlContent = `
-        <html>
-        <head>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                .header { background-color: #f4f4f4; padding: 15px; border-radius: 5px; }
-                .section { margin: 20px 0; }
-                .issue-list { background-color: #fff3cd; padding: 10px; border-radius: 5px; margin: 10px 0; }
-                .employee { background-color: #f8f9fa; padding: 8px; margin: 5px 0; border-radius: 3px; }
-                .summary { background-color: #d1ecf1; padding: 15px; border-radius: 5px; }
-                .footer { margin-top: 30px; font-size: 12px; color: #666; }
-            </style>
-        </head>
-        <body>
-            <div class="header">
-                <h2> Weekly Timesheet Monitoring Report</h2>
-                <p><strong>Week:</strong> ${weekNumber} (${startDate} to ${endDate})</p>
-                <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>
-            </div>
-
-            <div class="summary">
-                <h3> Summary</h3>
-                <ul>
-                    <li><strong>Total Employees:</strong> ${issues.totalEmployees}</li>
-                    <li><strong>No Submission:</strong> ${issues.noSubmission.length}</li>
-                    <li><strong>Partial Submission:</strong> ${issues.partialSubmission.length}</li>
-                    <li><strong>Flagged Hours:</strong> ${issues.flaggedHours.length}</li>
-                </ul>
-            </div>
-        `;
-
-        // No submission section
-        if (issues.noSubmission.length > 0) {
-            htmlContent += `
-                <div class="section">
-                    <h3>No Timesheet Submission (${issues.noSubmission.length} employees)</h3>
-                    <div class="issue-list">
-            `;
-            issues.noSubmission.forEach(emp => {
-                htmlContent += `
-                    <div class="employee">
-                        <strong>${emp.name}</strong> (${emp.employementStatus})<br>
-                        <small>User ID: ${emp.userId} | Allocated: ${emp.allocatedHours}h | Logged: ${emp.loggedHours}h</small>
-                    </div>
-                `;
-            });
-            htmlContent += `</div></div>`;
-        }
-
-        // Partial submission section
-        if (issues.partialSubmission.length > 0) {
-            htmlContent += `
-                <div class="section">
-                    <h3> Incomplete Timesheet Submission (${issues.partialSubmission.length} employees)</h3>
-                    <div class="issue-list">
-            `;
-            issues.partialSubmission.forEach(emp => {
-                htmlContent += `
-                    <div class="employee">
-                        <strong>${emp.name}</strong> (${emp.employementStatus})<br>
-                        <small>User ID: ${emp.userId} | Allocated: ${emp.allocatedHours}h | Logged: ${emp.loggedHours}h | Shortfall: ${emp.shortfall}h</small>
-                    </div>
-                `;
-            });
-            htmlContent += `</div></div>`;
-        }
-
-        // Flagged hours section
-        if (issues.flaggedHours.length > 0) {
-            htmlContent += `
-                <div class="section">
-                    <h3> Flagged Hours Requiring Review (${issues.flaggedHours.length} employees)</h3>
-                    <div class="issue-list">
-            `;
-            issues.flaggedHours.forEach(emp => {
-                htmlContent += `
-                    <div class="employee">
-                        <strong>${emp.name}</strong><br>
-                        <small>User ID: ${emp.userId} | Flagged Hours: ${emp.flaggedHours}h | Total Logged: ${emp.loggedHours}h</small>
-                    </div>
-                `;
-            });
-            htmlContent += `</div></div>`;
-        }
-
-        htmlContent += `
-            <div class="footer">
-                <p>This is an automated report generated by the Timesheet Monitoring System.</p>
-                <p>For questions or issues, please contact the IT team.</p>
-            </div>
-        </body>
-        </html>
-        `;
-
-        return htmlContent;
-    }
-
-    /**
      * Send Slack notification
      */
     async sendSlackNotification(issues, weekInfo) {
@@ -846,91 +589,6 @@ class TimesheetAPI {
         await Promise.all(dmPromises);
     }
 
-    /**
-     * Send both email and Slack notifications
-     */
-    async sendAllNotifications(issues, weekInfo) {
-        const notifications = [];
-        
-        // Send email notification
-        notifications.push(
-            this.sendNotification(issues, weekInfo).catch(error => {
-                console.error(' Email notification failed:', error.message);
-            })
-        );
-        
-        // Send Slack notification
-        notifications.push(
-            this.sendSlackNotification(issues, weekInfo).catch(error => {
-                console.error(' Slack notification failed:', error.message);
-            })
-        );
-        
-        // Send DMs to individual users
-        notifications.push(
-            this.sendMissingTimesheetDMs(issues, weekInfo).catch(error => {
-                console.error(' Slack DMs failed:', error.message);
-            })
-        );
-        
-        await Promise.all(notifications);
-    }
-
-    /**
-     * Post timesheet entry to the timesheet API
-     */
-    async postTimesheetEntry(timesheetEntry) {
-        try {
-            // Check if we're in mock mode
-            const mockMode = process.env.MOCK_MODE === 'true';
-            
-            if (mockMode) {
-                
-                // Simulate a successful response
-                return {
-                    id: `mock-${Date.now()}`,
-                    status: 'success',
-                    message: 'Mock timesheet entry created successfully',
-                    entry: timesheetEntry
-                };
-            }
-            
-            // Get the timesheet API URL from environment or use default
-            const timesheetPostUrl = process.env.TIMESHEET_POST_URL || 'http://172.104.26.247:3999/api/create/timesheet';
-            
-            const response = await axios.post(timesheetPostUrl, [timesheetEntry], {
-                timeout: 30000,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'User-Agent': 'TimesheetMonitor-API/1.0'
-                }
-            });
-
-            if (response.status === 200 || response.status === 201) {
-                return response.data;
-            } else {
-                throw new Error(`API returned status ${response.status}`);
-            }
-        } catch (error) {
-            console.error(' Error posting timesheet entry:');
-            if (error.response) {
-                console.error(`   Status: ${error.response.status}`);
-                console.error(`   Data: ${JSON.stringify(error.response.data, null, 2)}`);
-                throw new Error(`External API error: ${error.response.status} - ${JSON.stringify(error.response.data)}`);
-            } else if (error.request) {
-                console.error(`   No response received from: ${timesheetPostUrl}`);
-                console.error(`   This might be a network issue or the API server is down`);
-                throw new Error(`Network error: Unable to reach timesheet API at ${timesheetPostUrl}`);
-            } else {
-                console.error(`   Error: ${error.message}`);
-                throw error;
-            }
-        }
-    }
-
-    /**
-     * Start the API server
-     */
     start() {
         this.app.listen(this.port, () => {
             console.log(' Timesheet Monitor API Server Started');
@@ -942,7 +600,6 @@ class TimesheetAPI {
     }
 }
 
-// Initialize and start the API server
 if (require.main === module) {
     const api = new TimesheetAPI();
     api.start();
